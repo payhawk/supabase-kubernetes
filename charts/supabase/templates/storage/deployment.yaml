@@ -109,8 +109,12 @@ spec:
               containerPort: 5000
               protocol: TCP
           env:
+            # DEVIATION from upstream (see VENDORING.md): upstream ties this to minio, so the only
+            # way to get the S3 backend was to run minio. We talk S3 to GCS, so it needs its own
+            # switch - and setting it through environment.storage instead produced a duplicate env
+            # key, which server-side apply rejects outright.
             - name: STORAGE_BACKEND
-              value: {{ if .Values.deployment.minio.enabled }}"s3"{{ else }}"file"{{ end }}
+              value: {{ .Values.storageBackend | default (ternary "s3" "file" .Values.deployment.minio.enabled) | quote }}
             - name: DB_DRIVER
               value: "postgres"
             - name: DB_USER
@@ -119,17 +123,35 @@ spec:
               value: "disable"
 
             {{- if or .Values.secret.s3.secretRef .Values.deployment.minio.enabled }}
+            {{- /*
+              DEVIATION from upstream (see VENDORING.md): upstream always sourced these from the
+              minio secret, because minio was the only supported S3 backend. AWS_* are the
+              credentials storage-api uses to talk to the object store - with minio off and GCS
+              behind the S3 interop endpoint, they must be the s3 secret's HMAC pair, or every
+              upload fails "SignatureDoesNotMatch" while bucket listing (which only touches the
+              database) keeps returning 200.
+            */}}
             - name: AWS_ACCESS_KEY_ID
               valueFrom:
                 secretKeyRef:
+                  {{- if .Values.deployment.minio.enabled }}
                   name: {{ include "supabase.secret.minio.name" . }}
                   key: {{ include "supabase.secret.minio.key.user" . }}
+                  {{- else }}
+                  name: {{ include "supabase.secret.s3.name" . }}
+                  key: {{ include "supabase.secret.s3.key.keyId" . }}
+                  {{- end }}
 
             - name: AWS_SECRET_ACCESS_KEY
               valueFrom:
                 secretKeyRef:
+                  {{- if .Values.deployment.minio.enabled }}
                   name: {{ include "supabase.secret.minio.name" . }}
                   key: {{ include "supabase.secret.minio.key.password" . }}
+                  {{- else }}
+                  name: {{ include "supabase.secret.s3.name" . }}
+                  key: {{ include "supabase.secret.s3.key.accessKey" . }}
+                  {{- end }}
             {{- end }}
 
             {{- include "supabase.db.hostEnv" (dict "root" . "name" "DB_HOST") | nindent 12 }}

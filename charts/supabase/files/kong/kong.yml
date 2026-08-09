@@ -313,18 +313,17 @@ services:
           allow:
             - admin
 {{- end }}
-  - name: dashboard
-    _comment: 'Studio: /* -> http://{{ include "supabase.studio.fullname" . }}:{{ .Values.service.studio.port }}/*'
-    url: http://{{ include "supabase.studio.fullname" . }}:{{ .Values.service.studio.port }}/
-    routes:
-      - name: dashboard-all
-        strip_path: true
-        paths:
-          - /
-{{- if .Values.secret.dashboard }}
-    plugins:
-      - name: cors
-      - name: basic-auth
-        config:
-          hide_credentials: true
-{{- end }}
+{{/*
+  Upstream's `dashboard` service went here: Studio on a catch-all `/` route, guarded by basic-auth
+  whenever secret.dashboard is set. Deleted, which is upstream's own advice when Studio is not
+  served through Kong (supabase/supabase discussion #43852).
+
+  We serve Studio on its own hostname, straight from the Ingress to the Studio Service, gated by
+  IAP at the load balancer - so this route buys nothing and costs plenty. A catch-all here means
+  every path Kong does not recognise gets answered with `WWW-Authenticate: Basic`, which a browser
+  turns into a username/password dialog: that is what reloading the app's own /auth route produced
+  before the ingress prefixes were versioned. It also means one shared password is the only thing
+  between a request and full service_role access, which is precisely what IAP replaces.
+
+  A request Kong cannot route now gets a plain 404.
+*/}}
