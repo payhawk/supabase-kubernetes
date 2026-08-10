@@ -548,6 +548,11 @@ deployment:
     resources: {}
     volumeMounts: {}
     volumes: {}
+    ## Arbitrary init containers, verbatim. Studio reads edge functions off a folder rather than
+    ## from the database, and the only copy of them lives in the functions image - so populating an
+    ## emptyDir from that image is the one way to list them without mounting the runtime's own
+    ## storage, which would replace the functions the runtime serves.
+    initContainers: []
     ## Deployment strategy. Set to {type: Recreate} when using persistence.snippets
     ## with a ReadWriteOnce PVC: the chart's default RollingUpdate causes a
     ## Multi-Attach error because the new pod is scheduled before the old one

@@ -10,7 +10,7 @@ Branches here:
 | branch | what |
 |---|---|
 | `main` | upstream, untouched — kept so `git diff` against it stays meaningful |
-| `payhawk/supabase-0.7.2` | upstream tag `supabase-0.7.2` plus the three patches below |
+| `payhawk/supabase-0.7.2` | upstream tag `supabase-0.7.2` plus the four patches below |
 | `charts` | packaged `.tgz` artifacts, one per released version |
 
 The consumer installs the packaged tarball by URL and verifies its SHA-256 before handing it to
@@ -23,13 +23,13 @@ Helm, so a force-push to this repository cannot change what a cluster runs.
 | upstream | [supabase-community/supabase-kubernetes](https://github.com/supabase-community/supabase-kubernetes) |
 | tag | `supabase-0.7.2` |
 | commit | `d04a3133af93cc12af000b15f88c22507be5354f` |
-| chart version | `0.7.2-payhawk.1` |
+| chart version | `0.7.2-payhawk.2` |
 
 The community *Operator* in the same repository is `v1alpha1`/alpha and is deliberately not used.
 
 ## Patches
 
-Everything expressible as a values override belongs in the consumer's `values.yaml`. These three are
+Everything expressible as a values override belongs in the consumer's `values.yaml`. These four are
 not — they are template-level, so they live here.
 
 Two are in `templates/storage/deployment.yaml`, both because upstream assumes the only S3 backend is
@@ -53,11 +53,22 @@ The third is in `files/kong/kong.yml`:
    access. Serve Studio on its own hostname, gated by your own front door. A request Kong cannot
    route now gets a plain 404.
 
+The fourth is in `templates/studio/deployment.yaml`:
+
+4. A `deployment.studio.initContainers` passthrough was added (`{{- with … }}` + `toYaml`, the same
+   shape the chart already uses for `nodeSelector`/`affinity`). Studio lists edge functions by
+   reading `EDGE_FUNCTIONS_MANAGEMENT_FOLDER` off local disk, not out of the database, and the only
+   copy of those functions is inside the functions image. Upstream's one way to put them in the
+   Studio pod is `persistence.functions.enabled`, which mounts the *same* PVC into the functions
+   pod as well — replacing the functions the runtime actually serves with an empty volume. With
+   this hook the consumer runs the functions image as an init container, copies the folder into an
+   `emptyDir`, and mounts it read-only into Studio; the runtime pod is untouched.
+
 ## Releasing a new version
 
 ```sh
 git checkout -B payhawk/supabase-<upstream-version> <upstream-tag>
-# re-apply the three patches, read the diff against the tag
+# re-apply the four patches, read the diff against the tag
 $EDITOR charts/supabase/Chart.yaml            # version: <upstream-version>-payhawk.<n>
 git commit -am "chart: supabase <upstream-version>-payhawk.<n>"
 git push origin payhawk/supabase-<upstream-version>
