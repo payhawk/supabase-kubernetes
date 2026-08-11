@@ -10,7 +10,7 @@ Branches here:
 | branch | what |
 |---|---|
 | `main` | upstream, untouched — kept so `git diff` against it stays meaningful |
-| `payhawk/supabase-0.7.2` | upstream tag `supabase-0.7.2` plus the four patches below |
+| `payhawk/supabase-0.7.2` | upstream tag `supabase-0.7.2` plus the five patches below |
 | `charts` | packaged `.tgz` artifacts, one per released version |
 
 The consumer installs the packaged tarball by URL and verifies its SHA-256 before handing it to
@@ -23,13 +23,13 @@ Helm, so a force-push to this repository cannot change what a cluster runs.
 | upstream | [supabase-community/supabase-kubernetes](https://github.com/supabase-community/supabase-kubernetes) |
 | tag | `supabase-0.7.2` |
 | commit | `d04a3133af93cc12af000b15f88c22507be5354f` |
-| chart version | `0.7.2-payhawk.2` |
+| chart version | `0.7.2-payhawk.3` |
 
 The community *Operator* in the same repository is `v1alpha1`/alpha and is deliberately not used.
 
 ## Patches
 
-Everything expressible as a values override belongs in the consumer's `values.yaml`. These four are
+Everything expressible as a values override belongs in the consumer's `values.yaml`. These five are
 not — they are template-level, so they live here.
 
 Two are in `templates/storage/deployment.yaml`, both because upstream assumes the only S3 backend is
@@ -63,6 +63,18 @@ The fourth is in `templates/studio/deployment.yaml`:
    pod as well — replacing the functions the runtime actually serves with an empty volume. With
    this hook the consumer runs the functions image as an init container, copies the folder into an
    `emptyDir`, and mounts it read-only into Studio; the runtime pod is untouched.
+
+The fifth is in `templates/functions/functions.config.yaml`, its checksum in
+`templates/functions/deployment.yaml`, and `files/functions/index.ts`:
+
+5. The edge runtime's main service hardcoded `memoryLimitMb = 150` and `workerTimeoutMs = 60000`,
+   and the ConfigMap embedded that file with a plain `.Files.Get` — so neither limit was reachable
+   from values at all. Both are now `.Values.deployment.functions.memoryLimitMb` /
+   `.workerTimeoutMs`, defaulted to upstream's numbers, and the file is rendered through `tpl`
+   (the deployment's `checksum/config` annotation too, or a values-only change would not roll the
+   pods). Symptom of the old behaviour: any handler running past 60s is killed with `request has
+   been cancelled by supervisor` and the caller gets a bare 500. The timeout belongs at or below
+   the read timeout of whatever proxies `/functions/v1` — Kong's own `read_timeout`, typically.
 
 ## Releasing a new version
 

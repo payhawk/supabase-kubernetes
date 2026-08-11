@@ -6,5 +6,5 @@ metadata:
   labels:
     {{- include "supabase.labels" . | nindent 4 }}
 data:
-  index.ts: |{{ .Files.Get "files/functions/index.ts" | nindent 4 }}
+  index.ts: |{{ tpl (.Files.Get "files/functions/index.ts") . | nindent 4 }}
 {{- end }}

@@ -66,8 +66,8 @@ if (!service_name || service_name === '') {
 const servicePath = `/home/deno/functions/${service_name}`
 console.error(`serving the request with ${servicePath}`)
 
-const memoryLimitMb = 150
-const workerTimeoutMs = 1 * 60 * 1000
+const memoryLimitMb = {{ .Values.deployment.functions.memoryLimitMb | default 150 }}
+const workerTimeoutMs = {{ .Values.deployment.functions.workerTimeoutMs | default 60000 }}
 const noModuleCache = false
 const importMapPath = null
 const envVarsObj = Deno.env.toObject()

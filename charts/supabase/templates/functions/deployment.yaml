@@ -34,7 +34,7 @@ spec:
         # update the router silently leave running pods on the old code.
         # Matches the pattern already used by the vector Deployment in this
         # chart.
-        checksum/config: {{ .Files.Get "files/functions/index.ts" | sha256sum }}
+        checksum/config: {{ tpl (.Files.Get "files/functions/index.ts") . | sha256sum }}
         {{- with .Values.deployment.functions.podAnnotations }}
         {{- toYaml . | nindent 8 }}
         {{- end }}

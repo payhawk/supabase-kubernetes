@@ -314,6 +314,13 @@ deployment:
   functions:
     enabled: true
     replicaCount: 1
+    # Per-request limits the edge runtime's main service applies to every user worker
+    # (files/functions/index.ts). Upstream hardcodes 150 MB and 60s; a handler that runs
+    # longer is killed with "request has been cancelled by supervisor", which reaches the
+    # caller as a 500 and says nothing about why. Keep workerTimeoutMs at or below the
+    # read timeout of whatever proxies the /functions/v1 route, or the proxy gives up first.
+    memoryLimitMb: 150
+    workerTimeoutMs: 60000
     nameOverride: ""
     fullnameOverride: ""
     labels: {}
